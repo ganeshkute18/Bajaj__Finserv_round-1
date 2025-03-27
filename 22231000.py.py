@@ -1,73 +1,45 @@
 import pandas as pd
-import re
 
-def find_absence_streaks(attendance_df):
-    absence_streaks = []
-    
-    for student_id, group in attendance_df.groupby('student_id'):
-        group = group.sort_values(by='attendance_date')
-        streak_start = None
-        streak_count = 0
-        last_date = None
+file_path = "C:\Downloads\Data Engineering\Data Engineering\data - sample.xlsx"  
+df_attendance = pd.read_excel(file_path, sheet_name="Attendance_data")
+
+df_attendance["attendance_date"] = pd.to_datetime(df_attendance["attendance_date"], dayfirst=True)
+
+df_absent = df_attendance[df_attendance["status"] == "Absent"].sort_values(["student_id", "attendance_date"])
+
+def get_latest_absence_streak(df):
+    latest_listt = []
+    for student_id, group in df.groupby("student_id"):
+        sorted_dates = group["attendance_date"].tolist()
         
-        for index, row in group.iterrows():
-            if row['status'] == 'Absent':
-                if streak_start is None:
-                    streak_start = row['attendance_date']
-                streak_count += 1
-                last_date = row['attendance_date']
+        listt = []
+        start_date = sorted_dates[0]
+        prev_date = start_date
+        count = 1
+
+        for i in range(1, len(sorted_dates)):
+            if (sorted_dates[i] - prev_date).days == 1:
+                count += 1
             else:
-                if streak_count > 3:
-                    absence_streaks.append([student_id, streak_start, last_date, streak_count])
-                streak_start = None
-                streak_count = 0
+                if count > 3: 
+                    listt.append((start_date, prev_date, count))
+                start_date = sorted_dates[i]
+                count = 1
+            prev_date = sorted_dates[i]
         
-        if streak_count > 3:
-            absence_streaks.append([student_id, streak_start, last_date, streak_count])
+        if count > 3:
+            listt.append((start_date, prev_date, count))
+        
+        if listt:
+            latest_streak = max(listt, key=lambda x: x[1])
+            latest_listt.append((student_id, latest_streak[0], latest_streak[1], latest_streak[2]))
     
-    return pd.DataFrame(absence_streaks, columns=['student_id', 'absence_start_date', 'absence_end_date', 'total_absent_days'])
+    return pd.DataFrame(latest_listt, columns=["student_id", "absence_start_date", "absence_end_date", "total_absent_days"])
 
-def is_valid_email(email):
-    pattern = r'^[a-zA-Z_][a-zA-Z0-9_]*@[a-zA-Z]+\.com$'
-    return bool(re.match(pattern, email))
+df_absence_listt = get_latest_absence_streak(df_absent)
 
-def run():
-    attendance_data = {
-        'student_id': [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
-        'attendance_date': pd.to_datetime([
-            '2025-03-20', '2025-03-21', '2025-03-22', '2025-03-23', '2025-03-24',
-            '2025-03-18', '2025-03-19', '2025-03-20', '2025-03-21', '2025-03-22',
-            '2025-03-15', '2025-03-16', '2025-03-17'
-        ]),
-        'status': ['Present', 'Absent', 'Absent', 'Absent', 'Absent', 'Absent', 'Absent', 'Absent', 'Present', 'Absent', 'Present', 'Absent', 'Absent']
-    }
-    
-    students_data = {
-        'student_id': [1, 2, 3],
-        'name': ['Alice', 'Bob', 'Charlie'],
-        'parent_email': ['alice_parent@gmail.com', 'bob.parent@outlook.com', 'charlie_123@invalid']
-    }
-    
-    attendance_df = pd.DataFrame(attendance_data)
-    students_df = pd.DataFrame(students_data)
-    
-    absence_streaks_df = find_absence_streaks(attendance_df)
-    result_df = absence_streaks_df.merge(students_df, on='student_id', how='left')
-    
-    result_df['email'] = result_df['parent_email'].apply(lambda x: x if is_valid_email(x) else None)
-    result_df['msg'] = result_df.apply(
-        lambda row: f"Dear Parent, your child {row['name']} was absent from {row['absence_start_date'].date()} to {row['absence_end_date'].date()} for {row['total_absent_days']} days. Please ensure their attendance improves."
-        if row['email'] else None, axis=1
-    )
-    
-    final_df = result_df[['student_id', 'absence_start_date', 'absence_end_date', 'total_absent_days', 'email', 'msg']]
-    
-    print("\n" + "="*50)
-    print("Final Output")
-    print("="*50 + "\n")
-    print(final_df.to_string(index=False))
-    print("\n" + "="*50)
-    
-    return final_df
+output_file = "C:\Downloads\Data Engineering\Data Engineering\data - sample.xlsx"
+df_absence_listt.to_excel(output_file, index=False)
 
-df_output = run()
+print(df_absence_listt)
+
