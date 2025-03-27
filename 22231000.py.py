@@ -32,7 +32,6 @@ def is_valid_email(email):
     return bool(re.match(pattern, email))
 
 def run():
-    # Load the attendance data
     attendance_data = {
         'student_id': [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
         'attendance_date': pd.to_datetime([
@@ -71,5 +70,4 @@ def run():
     
     return final_df
 
-# Run the function
 df_output = run()
